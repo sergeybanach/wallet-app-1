@@ -1,4 +1,5 @@
-Debian 12, NodeJS 22.13.1
+Debian 12, NodeJS 22.13.1, pnpm
+
 ### eslint.config.js ###
 import js from '@eslint/js'
 import globals from 'globals'
@@ -58,6 +59,7 @@ export default tseslint.config(
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.0.8",
+    "firebase": "^11.3.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwindcss": "^4.0.8"
@@ -81,13 +83,82 @@ export default tseslint.config(
 
 
 ### src/App.tsx ###
-import { useState } from 'react';
-import './App.css'; // Keep this if you add custom styles later
+import { useState, useEffect } from 'react';
+import './App.css';
+import { auth } from './firebase';
+import { User } from 'firebase/auth';
+import AuthForm from './AuthForm';
+import Home from './Home';
 
 function App() {
-  const [isLogin, setIsLogin] = useState(true); // Toggle between login and register
+  const [user, setUser] = useState<User | null>(null);
 
-  const toggleForm = () => setIsLogin(!isLogin);
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleAuthSuccess = () => {
+    // This will be called when login/register succeeds, triggering a re-render
+    setUser(auth.currentUser);
+  };
+
+  return user ? <Home /> : <AuthForm onAuthSuccess={handleAuthSuccess} />;
+}
+
+export default App;
+
+### src/AuthForm.tsx ###
+import { useState } from 'react';
+import { auth } from './firebase';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from 'firebase/auth';
+
+interface AuthFormProps {
+  onAuthSuccess: () => void; // Callback to notify parent of successful auth
+}
+
+function AuthForm({ onAuthSuccess }: AuthFormProps) {
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const toggleForm = () => {
+    setIsLogin(!isLogin);
+    setError(null);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      if (isLogin) {
+        await signInWithEmailAndPassword(auth, email, password);
+      } else {
+        if (password !== confirmPassword) {
+          setError('Passwords do not match');
+          setLoading(false);
+          return;
+        }
+        await createUserWithEmailAndPassword(auth, email, password);
+      }
+      onAuthSuccess(); // Notify parent of success
+    } catch (err: any) {
+      setError(err.message || 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -96,7 +167,9 @@ function App() {
           {isLogin ? 'Login' : 'Register'}
         </h2>
 
-        <form className="space-y-6">
+        {error && <p className="text-red-500 text-center mb-4">{error}</p>}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
           {!isLogin && (
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700">
@@ -105,6 +178,8 @@ function App() {
               <input
                 type="text"
                 id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 placeholder="John Doe"
               />
@@ -118,8 +193,11 @@ function App() {
             <input
               type="email"
               id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               placeholder="you@example.com"
+              required
             />
           </div>
 
@@ -130,8 +208,11 @@ function App() {
             <input
               type="password"
               id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               placeholder="••••••••"
+              required
             />
           </div>
 
@@ -143,17 +224,21 @@ function App() {
               <input
                 type="password"
                 id="confirm-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 placeholder="••••••••"
+                required
               />
             </div>
           )}
 
           <button
             type="submit"
-            className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            disabled={loading}
+            className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:bg-indigo-400"
           >
-            {isLogin ? 'Login' : 'Register'}
+            {loading ? 'Processing...' : isLogin ? 'Login' : 'Register'}
           </button>
         </form>
 
@@ -171,11 +256,145 @@ function App() {
   );
 }
 
-export default App;
+export default AuthForm;
+
+### src/Home.tsx ###
+import { useState, useEffect } from 'react';
+import { auth } from './firebase';
+import { User } from 'firebase/auth';
+import TopBar from './TopBar';
+
+function Home() {
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  if (!user) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <TopBar user={user} />
+      <div className="p-6">
+        <h1 className="text-2xl font-bold mb-4">Welcome to Your Wallet</h1>
+        <p className="text-gray-700">
+          This is your home screen. Add your wallet features here!
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export default Home;
+
+### src/TopBar.tsx ###
+import { useState } from 'react';
+import { auth } from './firebase';
+import { signOut, User } from 'firebase/auth';
+
+// Base64-encoded default profile image (gray circle with user icon)
+const DEFAULT_PROFILE_IMAGE = 
+    'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNDQ0NDQ0MiLz4KPHBhdGggZD0iTTE5Ljk5OTkgMjQuNUMyMi43NjQyIDI0LjUgMjUuMDAwMSAyMi4yNjQyIDI1LjAwMDEgMTkuNUMyNS4wMDAxIDE2LjczNTggMjIuNzY0MiAxNC40OTk5IDE5Ljk5OTkgMTQuNDk5OUMxNy4yMzU3IDE0LjQ5OTkgMTUgMTYuNzM1OCAxNSAxOS41QzE1IDIyLjI2NDIgMTcuMjM1NyAyNC41IDE5Ljk5OTkgMjQuNVoiIGZpbGw9IiM2NjY2NjYiLz4KPHBhdGggZD0iTTEyLjUgMjkuNUMxMi41IDI3LjAxNDkgMTQuNTE0OSAyNSAyNy41IDI1QzI3LjUgMjcuMDE0OSAyNS40ODUxIDI5IDIyLjUgMjkuNUMxOS41MTQ5IDI5LjUgMTcuNSAyNy40ODUxIDE3LjUgMjUuNUMxNS41MTQ9IDI1LjUgMTIuNSAyNy4wMTQ5IDEyLjUgMjkuNVoiIGZpbGw9IiM6NjY2NjYiLz4KPC9zdmc+';
+
+interface TopBarProps {
+  user: User;
+}
+
+function TopBar({ user }: TopBarProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      console.log('Logged out successfully');
+      setIsMenuOpen(false);
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
+  };
+
+  const toggleMenu = () => {
+    console.log('Toggling menu, current state:', isMenuOpen); // Debug log
+    setIsMenuOpen((prev) => !prev);
+  };
+
+  return (
+    <div className="bg-white shadow-md p-4 flex items-center justify-between relative">
+      <div className="flex items-center space-x-4">
+        <div className="relative">
+          <img
+            src={user.photoURL || DEFAULT_PROFILE_IMAGE}
+            alt="Profile"
+            className="w-10 h-10 rounded-full cursor-pointer"
+            onClick={toggleMenu}
+          />
+          {/* Dropdown Menu */}
+          <div
+            className={`absolute top-full mt-2 right-0 bg-white shadow-lg rounded-md w-40 z-50 ${
+              isMenuOpen ? 'block' : 'hidden'
+            }`}
+          >
+            <ul className="py-2 text-sm">
+              <li
+                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                onClick={() => {
+                  console.log('Profile clicked');
+                  setIsMenuOpen(false);
+                }}
+              >
+                Profile
+              </li>
+              <li
+                className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-red-600"
+                onClick={handleLogout}
+              >
+                Logout
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div>
+          <p className="text-lg font-semibold">{user.displayName || 'User'}</p>
+          <p className="text-sm text-gray-600">{user.email}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default TopBar;
+
+### src/firebase.ts ###
+import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+
+// Replace with your Firebase config from the console
+const firebaseConfig = {
+    apiKey: "AIzaSyCZZq1UfrIIcjsbZe3JTyEMQ2xa0NkZoBo",
+    authDomain: "hogweed-map.firebaseapp.com",
+    projectId: "hogweed-map",
+    storageBucket: "hogweed-map.firebasestorage.app",
+    messagingSenderId: "790762617108",
+    appId: "1:790762617108:web:bdcabebbf639f66eaeaa01",
+    measurementId: "G-HG7MFQSGNM"
+};
+
+const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
 
 ### src/index.css ###
 
 @import "tailwindcss";
+
+/* @tailwind base; 
+@tailwind components; 
+@tailwind utilities; */
 
 ### src/main.tsx ###
 import { StrictMode } from 'react';

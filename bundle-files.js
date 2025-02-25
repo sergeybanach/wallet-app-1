@@ -86,7 +86,7 @@ async function bundleProject() {
 
     console.log(`Found ${files.length} files. Bundling into ${outputFile}...`);
 
-    let bundledContent = "Debian 12, NodeJS 22.13.1, pnpm\n"
+    let bundledContent = "Debian 12, NodeJS 22.13.1, pnpm\n\n"
 
     // Prepare the bundled content
     bundledContent += files
