@@ -1,16 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './App.css';
 import { auth } from './firebase';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  User,
 } from 'firebase/auth';
-import { onAuthStateChanged } from 'firebase/auth';
-import { useEffect } from 'react';
-import { signOut } from 'firebase/auth';
-
+import Home from './Home';
 
 function App() {
+  const [user, setUser] = useState<User | null>(null);
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,20 +19,15 @@ function App() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        console.log('User is signed in:', user.email);
-        // Redirect to a dashboard or update UI
-      } else {
-        console.log('No user signed in');
-      }
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      setUser(currentUser);
     });
-    return () => unsubscribe(); // Cleanup on unmount
+    return () => unsubscribe();
   }, []);
 
   const toggleForm = () => {
     setIsLogin(!isLogin);
-    setError(null); // Clear errors on toggle
+    setError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -43,18 +37,14 @@ function App() {
 
     try {
       if (isLogin) {
-        // Login
         await signInWithEmailAndPassword(auth, email, password);
-        console.log('Logged in successfully!');
       } else {
-        // Register
         if (password !== confirmPassword) {
           setError('Passwords do not match');
           setLoading(false);
           return;
         }
         await createUserWithEmailAndPassword(auth, email, password);
-        console.log('Registered successfully!');
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred');
@@ -63,6 +53,10 @@ function App() {
     }
   };
 
+  if (user) {
+    return <Home />;
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
@@ -70,9 +64,7 @@ function App() {
           {isLogin ? 'Login' : 'Register'}
         </h2>
 
-        {error && (
-          <p className="text-red-500 text-center mb-4">{error}</p>
-        )}
+        {error && <p className="text-red-500 text-center mb-4">{error}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {!isLogin && (
