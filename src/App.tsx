@@ -5,6 +5,10 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
 } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
+import { useEffect } from 'react';
+import { signOut } from 'firebase/auth';
+
 
 function App() {
   const [isLogin, setIsLogin] = useState(true);
@@ -14,6 +18,18 @@ function App() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log('User is signed in:', user.email);
+        // Redirect to a dashboard or update UI
+      } else {
+        console.log('No user signed in');
+      }
+    });
+    return () => unsubscribe(); // Cleanup on unmount
+  }, []);
 
   const toggleForm = () => {
     setIsLogin(!isLogin);
