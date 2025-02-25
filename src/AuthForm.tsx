@@ -1,22 +1,19 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { auth } from './firebase';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
 } from 'firebase/auth';
 
-interface AuthFormProps {
-  onAuthSuccess: () => void; // Callback to notify parent of successful auth
-}
-
-function AuthForm({ onAuthSuccess }: AuthFormProps) {
+function AuthForm() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const toggleForm = () => {
     setIsLogin(!isLogin);
@@ -39,7 +36,7 @@ function AuthForm({ onAuthSuccess }: AuthFormProps) {
         }
         await createUserWithEmailAndPassword(auth, email, password);
       }
-      onAuthSuccess(); // Notify parent of success
+      navigate('/home'); // Redirect to home on success
     } catch (err: any) {
       setError(err.message || 'An error occurred');
     } finally {
@@ -57,22 +54,6 @@ function AuthForm({ onAuthSuccess }: AuthFormProps) {
         {error && <p className="text-red-500 text-center mb-4">{error}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {!isLogin && (
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                Full Name
-              </label>
-              <input
-                type="text"
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="John Doe"
-              />
-            </div>
-          )}
-
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
               Email

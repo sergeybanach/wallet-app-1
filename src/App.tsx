@@ -1,26 +1,29 @@
 import { useState, useEffect } from 'react';
-import './App.css';
+import { useNavigate } from 'react-router-dom';
 import { auth } from './firebase';
 import { User } from 'firebase/auth';
-import AuthForm from './AuthForm';
-import Home from './Home';
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        navigate('/home'); // Redirect to home if logged in
+      } else {
+        navigate('/auth'); // Redirect to auth if not logged in
+      }
     });
     return () => unsubscribe();
-  }, []);
+  }, [navigate]);
 
-  const handleAuthSuccess = () => {
-    // This will be called when login/register succeeds, triggering a re-render
-    setUser(auth.currentUser);
-  };
-
-  return user ? <Home /> : <AuthForm onAuthSuccess={handleAuthSuccess} />;
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <p>Loading...</p> {/* Shown briefly while auth state is checked */}
+    </div>
+  );
 }
 
 export default App;

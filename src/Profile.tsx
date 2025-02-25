@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { auth } from './firebase';
 import { User, updateProfile } from 'firebase/auth';
 
-const DEFAULT_PROFILE_IMAGE = '/default-profile.jpg'; // Assuming you placed it in ./public
+const DEFAULT_PROFILE_IMAGE = '/default-profile.jpg';
 
 function Profile() {
   const [user, setUser] = useState<User | null>(null);
@@ -12,8 +13,8 @@ function Profile() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-  // Sync with current authenticated user
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
       if (currentUser) {
@@ -21,23 +22,20 @@ function Profile() {
         setDisplayName(currentUser.displayName || '');
         setPreviewUrl(currentUser.photoURL || DEFAULT_PROFILE_IMAGE);
       } else {
-        // Redirect or handle unauthenticated state if needed
-        setUser(null);
+        navigate('/auth'); // Redirect to auth if not logged in
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [navigate]);
 
-  // Handle file selection and preview
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setPhotoFile(file);
-      setPreviewUrl(URL.createObjectURL(file)); // Create a preview URL
+      setPreviewUrl(URL.createObjectURL(file));
     }
   };
 
-  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -47,19 +45,12 @@ function Profile() {
     setSuccess(null);
 
     try {
-      // Update profile (displayName only for now; photoURL requires storage upload for persistence)
       await updateProfile(user, {
         displayName: displayName || null,
-        // Note: photoURL will be updated below if a file is uploaded
       });
 
-      // If a new photo is selected, you’d typically upload it to Firebase Storage and update photoURL
-      // For simplicity, we’ll just set a local preview here (see note below)
       if (photoFile) {
-        // Placeholder for Firebase Storage upload logic (not implemented here)
         console.log('Photo upload not implemented. File selected:', photoFile);
-        // Example: const photoURL = await uploadToStorage(photoFile);
-        // await updateProfile(user, { photoURL });
       }
 
       setSuccess('Profile updated successfully!');
@@ -83,7 +74,6 @@ function Profile() {
         {success && <p className="text-green-500 text-center mb-4">{success}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Profile Picture */}
           <div className="flex flex-col items-center">
             <img
               src={previewUrl || DEFAULT_PROFILE_IMAGE}
@@ -105,7 +95,6 @@ function Profile() {
             />
           </div>
 
-          {/* Display Name */}
           <div>
             <label
               htmlFor="displayName"
@@ -123,13 +112,20 @@ function Profile() {
             />
           </div>
 
-          {/* Submit Button */}
           <button
             type="submit"
             disabled={loading}
             className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:bg-indigo-400"
           >
             {loading ? 'Saving...' : 'Save Changes'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate('/home')}
+            className="w-full py-2 px-4 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 mt-2"
+          >
+            Back to Home
           </button>
         </form>
       </div>

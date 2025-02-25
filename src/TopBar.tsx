@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { auth } from './firebase';
 import { signOut, User } from 'firebase/auth';
 
@@ -6,19 +7,20 @@ const DEFAULT_PROFILE_IMAGE = '/default-profile.jpg';
 
 interface TopBarProps {
   user: User;
-  onProfileClick?: () => void; // Add prop to handle profile navigation
 }
 
-function TopBar({ user, onProfileClick }: TopBarProps) {
+function TopBar({ user }: TopBarProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const profileImgRef = useRef<HTMLImageElement>(null);
+  const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
       console.log('Logged out successfully');
       setIsMenuOpen(false);
+      navigate('/auth'); // Redirect to auth after logout
     } catch (err) {
       console.error('Logout error:', err);
     }
@@ -73,8 +75,7 @@ function TopBar({ user, onProfileClick }: TopBarProps) {
             <li
               className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
               onClick={() => {
-                console.log('Profile clicked');
-                if (onProfileClick) onProfileClick(); // Trigger navigation
+                navigate('/profile');
                 setIsMenuOpen(false);
               }}
             >
