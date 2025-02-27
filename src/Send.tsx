@@ -4,7 +4,7 @@ import { auth, db } from './firebase';
 import { User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { Buffer } from 'buffer';
-import { TonClient, WalletContractV4, Address, beginCell, toNano } from '@ton/ton';
+import { TonClient, WalletContractV4, Address, toNano, internal } from '@ton/ton';
 
 interface WalletData {
   address: string;
@@ -57,10 +57,10 @@ function Send() {
 
     try {
       const client = new TonClient({
-        endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC', // Testnet endpoint
+        endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC',
+        apiKey: '07146a2c7f02f0929eb0326461bf8fc3b0c59ed9479d371fb0328d342417d68b', // Replace with your API key
       });
 
-      // Reconstruct the wallet contract
       const keyPair = {
         publicKey: Buffer.from(wallet.publicKey, 'hex'),
         secretKey: Buffer.from(wallet.privateKey, 'hex'),
@@ -70,31 +70,34 @@ function Send() {
         publicKey: keyPair.publicKey,
       });
 
-      // Open wallet and get sequence number
       const walletInstance = client.open(walletContract);
       const seqno = await walletInstance.getSeqno();
+      console.log('Current seqno:', seqno);
 
-      // Create transfer message
-      const transfer = walletInstance.createTransfer({
-        seqno,
-        secretKey: keyPair.secretKey,
-        messages: [
-          {
-            address: Address.parse(recipient),
-            amount: toNano(amount), // Convert TON to nanoTON
-            payload: beginCell().storeUint(0, 32).endCell(), // Simple transfer (no comment)
-          },
-        ],
+      const transferMessage = internal({
+        to: Address.parse(recipient),
+        value: toNano(amount),
+        bounce: false,
       });
 
-      // Send the transaction
+      const transfer = walletContract.createTransfer({
+        seqno,
+        secretKey: keyPair.secretKey,
+        messages: [transferMessage],
+      });
+
+      console.log('Sending transfer:', transfer);
       await walletInstance.send(transfer);
       setSuccess('Transaction sent successfully!');
       setRecipient('');
       setAmount('');
     } catch (err: any) {
-      console.error('Error sending transaction:', err);
-      setError(err.message || 'Failed to send transaction.');
+      console.error('Detailed error sending transaction:', err);
+      if (err.response?.status === 429) {
+        setError('Too many requests. Please wait a moment and try again.');
+      } else {
+        setError(err.message || 'Failed to send transaction.');
+      }
     } finally {
       setSending(false);
     }
