@@ -5,13 +5,20 @@ import { User } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { mnemonicNew, mnemonicToPrivateKey } from '@ton/crypto';
 import { WalletContractV4 } from '@ton/ton';
-import TopBar from './TopBar';
 import { Buffer } from 'buffer';
+import TopBar from './TopBar';
+
+interface WalletData {
+  address: string;
+  publicKey: string;
+  privateKey: string; // Included for completeness, but not displayed
+}
 
 function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [hasWallet, setHasWallet] = useState<boolean | null>(null);
-  const [mnemonic, setMnemonic] = useState<string[] | null>(null); // Store mnemonic temporarily
+  const [mnemonic, setMnemonic] = useState<string[] | null>(null);
+  const [wallet, setWallet] = useState<WalletData | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -24,9 +31,9 @@ function Home() {
           const userDoc = await getDoc(userDocRef);
           if (userDoc.exists() && userDoc.data()?.wallet) {
             setHasWallet(true);
+            setWallet(userDoc.data().wallet as WalletData); // Load existing wallet data
           } else {
             setHasWallet(false);
-            // Generate new wallet if none exists
             await generateAndSaveWallet(currentUser.uid);
           }
         } catch (err) {
@@ -43,28 +50,24 @@ function Home() {
 
   const generateAndSaveWallet = async (userId: string) => {
     try {
-      // Generate mnemonic locally
-      const mnemonicWords = await mnemonicNew(); // 24-word mnemonic
-      setMnemonic(mnemonicWords); // Show to user
+      const mnemonicWords = await mnemonicNew();
+      setMnemonic(mnemonicWords);
 
-      // Derive key pair from mnemonic
       const keyPair = await mnemonicToPrivateKey(mnemonicWords);
-
-      // Create TON wallet (v4 is the latest standard as of now)
-      const wallet = WalletContractV4.create({
-        workchain: 0, // Mainnet workchain
+      const walletContract = WalletContractV4.create({
+        workchain: 0,
         publicKey: keyPair.publicKey,
       });
 
-      // Save only public and private keys to Firestore
-      const walletData = {
+      const walletData: WalletData = {
         publicKey: Buffer.from(keyPair.publicKey).toString('hex'),
-        privateKey: Buffer.from(keyPair.secretKey).toString('hex'), // Note: Storing private key; encrypt in production!
-        address: wallet.address.toString(), // TON address
+        privateKey: Buffer.from(keyPair.secretKey).toString('hex'),
+        address: walletContract.address.toString(),
       };
 
       await setDoc(doc(db, 'users', userId), { wallet: walletData });
       setHasWallet(true);
+      setWallet(walletData); // Set wallet data immediately after creation
     } catch (err) {
       console.error('Error generating wallet:', err);
       setHasWallet(false);
@@ -87,14 +90,23 @@ function Home() {
               <p className="text-sm font-mono break-words">{mnemonic.join(' ')}</p>
             </div>
             <button
-              onClick={() => setMnemonic(null)} // Hide mnemonic after user acknowledges
+              onClick={() => setMnemonic(null)} // Hide mnemonic and show wallet interface
               className="py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
             >
               I’ve Saved It
             </button>
           </div>
-        ) : hasWallet === true ? (
-          <p className="text-gray-700">You have a TON wallet registered!</p>
+        ) : hasWallet === true && wallet ? (
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold">Your TON Wallet</h2>
+            <div className="bg-white p-4 rounded-md shadow-md">
+              <p className="text-gray-700">
+                <span className="font-medium">Address:</span>{' '}
+                <span className="text-sm font-mono break-all">{wallet.address}</span>
+              </p>
+              {/* Add more wallet details or actions here later */}
+            </div>
+          </div>
         ) : (
           <p className="text-gray-700">Generating your TON wallet...</p>
         )}
