@@ -4,14 +4,14 @@ import { auth, db } from './firebase';
 import { User } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { mnemonicNew, mnemonicToPrivateKey } from '@ton/crypto';
-import { WalletContractV4 } from '@ton/ton';
+import { WalletContractV4, TonClient, Address } from '@ton/ton';
 import { Buffer } from 'buffer';
 import TopBar from './TopBar';
 
 interface WalletData {
   address: string;
   publicKey: string;
-  privateKey: string; // Included for completeness, but not displayed
+  privateKey: string;
 }
 
 function Home() {
@@ -19,6 +19,7 @@ function Home() {
   const [hasWallet, setHasWallet] = useState<boolean | null>(null);
   const [mnemonic, setMnemonic] = useState<string[] | null>(null);
   const [wallet, setWallet] = useState<WalletData | null>(null);
+  const [balance, setBalance] = useState<string | null>(null); // Balance in TON
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -31,7 +32,9 @@ function Home() {
           const userDoc = await getDoc(userDocRef);
           if (userDoc.exists() && userDoc.data()?.wallet) {
             setHasWallet(true);
-            setWallet(userDoc.data().wallet as WalletData); // Load existing wallet data
+            const walletData = userDoc.data().wallet as WalletData;
+            setWallet(walletData);
+            await fetchBalance(walletData.address); // Fetch balance for existing wallet
           } else {
             setHasWallet(false);
             await generateAndSaveWallet(currentUser.uid);
@@ -67,10 +70,30 @@ function Home() {
 
       await setDoc(doc(db, 'users', userId), { wallet: walletData });
       setHasWallet(true);
-      setWallet(walletData); // Set wallet data immediately after creation
+      setWallet(walletData);
+      await fetchBalance(walletData.address); // Fetch balance for new wallet
     } catch (err) {
       console.error('Error generating wallet:', err);
       setHasWallet(false);
+    }
+  };
+
+  const fetchBalance = async (address: string) => {
+    try {
+      // Use TON mainnet or testnet RPC endpoint
+      const client = new TonClient({
+        // endpoint: 'https://toncenter.com/api/v2/jsonRPC', // Mainnet public RPC (requires API key for heavy use)
+        endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC', // 
+        // For testnet: 'https://testnet.toncenter.com/api/v2/jsonRPC'
+      });
+
+      const walletAddress = Address.parse(address);
+      const balanceNano = await client.getBalance(walletAddress);
+      const balanceTon = Number(balanceNano) / 1e9; // Convert nanoTON to TON (1 TON = 10^9 nanoTON)
+      setBalance(balanceTon.toFixed(2)); // Display with 2 decimal places
+    } catch (err) {
+      console.error('Error fetching balance:', err);
+      setBalance('Error');
     }
   };
 
@@ -90,7 +113,7 @@ function Home() {
               <p className="text-sm font-mono break-words">{mnemonic.join(' ')}</p>
             </div>
             <button
-              onClick={() => setMnemonic(null)} // Hide mnemonic and show wallet interface
+              onClick={() => setMnemonic(null)}
               className="py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
             >
               I’ve Saved It
@@ -99,12 +122,15 @@ function Home() {
         ) : hasWallet === true && wallet ? (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold">Your TON Wallet</h2>
-            <div className="bg-white p-4 rounded-md shadow-md">
+            <div className="bg-white p-4 rounded-md shadow-md space-y-2">
               <p className="text-gray-700">
                 <span className="font-medium">Address:</span>{' '}
                 <span className="text-sm font-mono break-all">{wallet.address}</span>
               </p>
-              {/* Add more wallet details or actions here later */}
+              <p className="text-gray-700">
+                <span className="font-medium">Balance:</span>{' '}
+                {balance === null ? 'Fetching...' : balance === 'Error' ? 'Unable to fetch' : `${balance} TON`}
+              </p>
             </div>
           </div>
         ) : (
