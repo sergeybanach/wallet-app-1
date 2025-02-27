@@ -82,7 +82,8 @@ function Home() {
     try {
       console.log('Fetching balance for address:', address);
       const client = new TonClient({
-        endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC', // Testnet
+        endpoint: import.meta.env.VITE_TON_TESTNET_ENDPOINT,
+        apiKey: import.meta.env.VITE_TON_TESTNET_API_KEY,
       });
       const walletAddress = Address.parse(address);
       const balanceNano = await client.getBalance(walletAddress);

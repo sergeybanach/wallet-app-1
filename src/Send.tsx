@@ -57,8 +57,8 @@ function Send() {
 
     try {
       const client = new TonClient({
-        endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC',
-        apiKey: '07146a2c7f02f0929eb0326461bf8fc3b0c59ed9479d371fb0328d342417d68b', // Replace with your API key
+        endpoint: import.meta.env.VITE_TON_TESTNET_ENDPOINT,
+        apiKey: import.meta.env.VITE_TON_TESTNET_API_KEY,
       });
 
       const keyPair = {
