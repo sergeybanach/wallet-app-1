@@ -82,7 +82,7 @@ function Home() {
     try {
       console.log('Fetching balance for address:', address);
       const client = new TonClient({
-        endpoint: 'https://toncenter.com/api/v2/jsonRPC',
+        endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC', // Testnet
       });
       const walletAddress = Address.parse(address);
       const balanceNano = await client.getBalance(walletAddress);
@@ -98,7 +98,7 @@ function Home() {
 
   const handleRefreshBalance = () => {
     if (wallet) {
-      setBalance(null); // Reset to "Fetching..."
+      setBalance(null);
       fetchBalance(wallet.address);
     }
   };
@@ -144,6 +144,12 @@ function Home() {
                 className="w-full py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
               >
                 Receive
+              </button>
+              <button
+                onClick={() => navigate('/send')}
+                className="w-full py-2 px-4 bg-orange-600 text-white rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+              >
+                Send
               </button>
               <button
                 onClick={handleRefreshBalance}
