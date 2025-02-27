@@ -6,15 +6,17 @@ import App from './App.tsx';
 import AuthForm from './AuthForm.tsx';
 import Home from './Home.tsx';
 import Profile from './Profile.tsx';
+import Receive from './Receive.tsx';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<App />} /> {/* App will check auth state */}
-        <Route path="/auth" element={<AuthForm />} /> {/* Login/Register */}
-        <Route path="/home" element={<Home />} /> {/* Home page */}
-        <Route path="/profile" element={<Profile />} /> {/* Profile editing */}
+        <Route path="/" element={<App />} />
+        <Route path="/auth" element={<AuthForm />} />
+        <Route path="/home" element={<Home />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/receive" element={<Receive />} /> {/* New route */}
       </Routes>
     </BrowserRouter>
   </StrictMode>
