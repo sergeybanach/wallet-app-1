@@ -59,10 +59,17 @@ export default tseslint.config(
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.0.8",
+    "@ton/crypto": "^3.3.0",
+    "@ton/ton": "^15.2.1",
+    "@tonconnect/ui-react": "^2.0.11",
+    "buffer": "^6.0.3",
     "firebase": "^11.3.1",
+    "qrcode.react": "^4.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "tailwindcss": "^4.0.8"
+    "react-router-dom": "^7.2.0",
+    "tailwindcss": "^4.0.8",
+    "tonweb": "^0.0.66"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
@@ -75,7 +82,8 @@ export default tseslint.config(
     "globals": "^15.15.0",
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.24.1",
-    "vite": "^6.2.0"
+    "vite": "^6.2.0",
+    "vite-plugin-node-polyfills": "^0.23.0"
   }
 }
 
@@ -84,52 +92,52 @@ export default tseslint.config(
 
 ### src/App.tsx ###
 import { useState, useEffect } from 'react';
-import './App.css';
+import { useNavigate } from 'react-router-dom';
 import { auth } from './firebase';
 import { User } from 'firebase/auth';
-import AuthForm from './AuthForm';
-import Home from './Home';
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        navigate('/home'); // Redirect to home if logged in
+      } else {
+        navigate('/auth'); // Redirect to auth if not logged in
+      }
     });
     return () => unsubscribe();
-  }, []);
+  }, [navigate]);
 
-  const handleAuthSuccess = () => {
-    // This will be called when login/register succeeds, triggering a re-render
-    setUser(auth.currentUser);
-  };
-
-  return user ? <Home /> : <AuthForm onAuthSuccess={handleAuthSuccess} />;
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <p>Loading...</p> {/* Shown briefly while auth state is checked */}
+    </div>
+  );
 }
 
 export default App;
 
 ### src/AuthForm.tsx ###
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { auth } from './firebase';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
 } from 'firebase/auth';
 
-interface AuthFormProps {
-  onAuthSuccess: () => void; // Callback to notify parent of successful auth
-}
-
-function AuthForm({ onAuthSuccess }: AuthFormProps) {
+function AuthForm() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const toggleForm = () => {
     setIsLogin(!isLogin);
@@ -152,7 +160,7 @@ function AuthForm({ onAuthSuccess }: AuthFormProps) {
         }
         await createUserWithEmailAndPassword(auth, email, password);
       }
-      onAuthSuccess(); // Notify parent of success
+      navigate('/home'); // Redirect to home on success
     } catch (err: any) {
       setError(err.message || 'An error occurred');
     } finally {
@@ -170,22 +178,6 @@ function AuthForm({ onAuthSuccess }: AuthFormProps) {
         {error && <p className="text-red-500 text-center mb-4">{error}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {!isLogin && (
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                Full Name
-              </label>
-              <input
-                type="text"
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="John Doe"
-              />
-            </div>
-          )}
-
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
               Email
@@ -260,21 +252,112 @@ export default AuthForm;
 
 ### src/Home.tsx ###
 import { useState, useEffect } from 'react';
-import { auth } from './firebase';
+import { useNavigate } from 'react-router-dom';
+import { auth, db } from './firebase';
 import { User } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { mnemonicNew, mnemonicToPrivateKey } from '@ton/crypto';
+import { WalletContractV4, TonClient, Address } from '@ton/ton';
+import { Buffer } from 'buffer';
 import TopBar from './TopBar';
+
+interface WalletData {
+  address: string;
+  publicKey: string;
+  privateKey: string;
+}
 
 function Home() {
   const [user, setUser] = useState<User | null>(null);
+  const [hasWallet, setHasWallet] = useState<boolean | null>(null);
+  const [mnemonic, setMnemonic] = useState<string[] | null>(null);
+  const [wallet, setWallet] = useState<WalletData | null>(null);
+  const [balance, setBalance] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
-      setUser(currentUser);
+    const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        try {
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists() && userDoc.data()?.wallet) {
+            setHasWallet(true);
+            const walletData = userDoc.data().wallet as WalletData;
+            setWallet(walletData);
+            await fetchBalance(walletData.address);
+          } else {
+            setHasWallet(false);
+            await generateAndSaveWallet(currentUser.uid);
+          }
+        } catch (err) {
+          console.error('Error fetching wallet data:', err);
+          setHasWallet(false);
+        }
+        setLoading(false);
+      } else {
+        navigate('/auth');
+      }
     });
     return () => unsubscribe();
-  }, []);
+  }, [navigate]);
 
-  if (!user) {
+  const generateAndSaveWallet = async (userId: string) => {
+    try {
+      const mnemonicWords = await mnemonicNew();
+      setMnemonic(mnemonicWords);
+
+      const keyPair = await mnemonicToPrivateKey(mnemonicWords);
+      const walletContract = WalletContractV4.create({
+        workchain: 0,
+        publicKey: keyPair.publicKey,
+      });
+
+      const walletData: WalletData = {
+        publicKey: Buffer.from(keyPair.publicKey).toString('hex'),
+        privateKey: Buffer.from(keyPair.secretKey).toString('hex'),
+        address: walletContract.address.toString(),
+      };
+
+      await setDoc(doc(db, 'users', userId), { wallet: walletData });
+      setHasWallet(true);
+      setWallet(walletData);
+      await fetchBalance(walletData.address);
+    } catch (err) {
+      console.error('Error generating wallet:', err);
+      setHasWallet(false);
+    }
+  };
+
+  const fetchBalance = async (address: string) => {
+    try {
+      console.log('Fetching balance for address:', address);
+      const client = new TonClient({
+        endpoint: import.meta.env.VITE_TON_TESTNET_ENDPOINT,
+        apiKey: import.meta.env.VITE_TON_TESTNET_API_KEY,
+      });
+      const walletAddress = Address.parse(address);
+      const balanceNano = await client.getBalance(walletAddress);
+      console.log('Balance (nanoTON):', balanceNano.toString());
+      const balanceTon = Number(balanceNano) / 1e9;
+      console.log('Balance (TON):', balanceTon);
+      setBalance(balanceTon.toFixed(2));
+    } catch (err) {
+      console.error('Error fetching balance:', err);
+      setBalance('Error');
+    }
+  };
+
+  const handleRefreshBalance = () => {
+    if (wallet) {
+      setBalance(null);
+      fetchBalance(wallet.address);
+    }
+  };
+
+  if (!user || loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
@@ -283,9 +366,56 @@ function Home() {
       <TopBar user={user} />
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-4">Welcome to Your Wallet</h1>
-        <p className="text-gray-700">
-          This is your home screen. Add your wallet features here!
-        </p>
+        {hasWallet === true && mnemonic ? (
+          <div className="space-y-4">
+            <p className="text-gray-700">Your TON wallet has been created! Save this mnemonic phrase securely (it will only be shown once):</p>
+            <div className="bg-gray-200 p-4 rounded-md">
+              <p className="text-sm font-mono break-words">{mnemonic.join(' ')}</p>
+            </div>
+            <button
+              onClick={() => setMnemonic(null)}
+              className="py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            >
+              I’ve Saved It
+            </button>
+          </div>
+        ) : hasWallet === true && wallet ? (
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold">Your TON Wallet</h2>
+            <div className="bg-white p-4 rounded-md shadow-md space-y-2">
+              <p className="text-gray-700">
+                <span className="font-medium">Address:</span>{' '}
+                <span className="text-sm font-mono break-all">{wallet.address}</span>
+              </p>
+              <p className="text-gray-700">
+                <span className="font-medium">Balance:</span>{' '}
+                {balance === null ? 'Fetching...' : balance === 'Error' ? 'Unable to fetch' : `${balance} TON`}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <button
+                onClick={() => navigate('/receive')}
+                className="w-full py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+              >
+                Receive
+              </button>
+              <button
+                onClick={() => navigate('/send')}
+                className="w-full py-2 px-4 bg-orange-600 text-white rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+              >
+                Send
+              </button>
+              <button
+                onClick={handleRefreshBalance}
+                className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                Refresh Balance
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-gray-700">Generating your TON wallet...</p>
+        )}
       </div>
     </div>
   );
@@ -293,14 +423,394 @@ function Home() {
 
 export default Home;
 
+### src/Profile.tsx ###
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { auth } from './firebase';
+import { User, updateProfile } from 'firebase/auth';
+
+const DEFAULT_PROFILE_IMAGE = '/default-profile.jpg';
+
+function Profile() {
+  const [user, setUser] = useState<User | null>(null);
+  const [displayName, setDisplayName] = useState('');
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        setDisplayName(currentUser.displayName || '');
+        setPreviewUrl(currentUser.photoURL || DEFAULT_PROFILE_IMAGE);
+      } else {
+        navigate('/auth'); // Redirect to auth if not logged in
+      }
+    });
+    return () => unsubscribe();
+  }, [navigate]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPhotoFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await updateProfile(user, {
+        displayName: displayName || null,
+      });
+
+      if (photoFile) {
+        console.log('Photo upload not implemented. File selected:', photoFile);
+      }
+
+      setSuccess('Profile updated successfully!');
+    } catch (err: any) {
+      setError(err.message || 'Failed to update profile.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!user) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+        <h2 className="text-2xl font-bold text-center mb-6">Edit Profile</h2>
+
+        {error && <p className="text-red-500 text-center mb-4">{error}</p>}
+        {success && <p className="text-green-500 text-center mb-4">{success}</p>}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="flex flex-col items-center">
+            <img
+              src={previewUrl || DEFAULT_PROFILE_IMAGE}
+              alt="Profile Preview"
+              className="w-24 h-24 rounded-full mb-4 object-cover"
+            />
+            <label
+              htmlFor="photo"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Profile Picture
+            </label>
+            <input
+              type="file"
+              id="photo"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="displayName"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Display Name
+            </label>
+            <input
+              type="text"
+              id="displayName"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="Your Name"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:bg-indigo-400"
+          >
+            {loading ? 'Saving...' : 'Save Changes'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate('/home')}
+            className="w-full py-2 px-4 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 mt-2"
+          >
+            Back to Home
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default Profile;
+
+### src/Receive.tsx ###
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { auth, db } from './firebase';
+import { User } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { QRCodeCanvas } from 'qrcode.react'; // Use QRCodeCanvas instead of QRCode
+
+interface WalletData {
+  address: string;
+  publicKey: string;
+  privateKey: string;
+}
+
+function Receive() {
+  const [user, setUser] = useState<User | null>(null);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        try {
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists() && userDoc.data()?.wallet) {
+            const walletData = userDoc.data().wallet as WalletData;
+            setWalletAddress(walletData.address);
+          } else {
+            navigate('/home');
+          }
+        } catch (err) {
+          console.error('Error fetching wallet data:', err);
+          navigate('/home');
+        }
+        setLoading(false);
+      } else {
+        navigate('/auth');
+      }
+    });
+    return () => unsubscribe();
+  }, [navigate]);
+
+  if (loading || !user || !walletAddress) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md space-y-6">
+        <h2 className="text-2xl font-bold text-center">Receive TON</h2>
+        <p className="text-gray-700 text-center">
+          Share this address or scan the QR code to receive TON:
+        </p>
+        <div className="flex justify-center">
+          <QRCodeCanvas value={walletAddress} size={200} />
+        </div>
+        <p className="text-sm font-mono text-gray-700 break-all text-center">{walletAddress}</p>
+        <button
+          onClick={() => navigate('/home')}
+          className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+        >
+          Back to Wallet
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default Receive;
+
+### src/Send.tsx ###
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { auth, db } from './firebase';
+import { User } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { Buffer } from 'buffer';
+import { TonClient, WalletContractV4, Address, toNano, internal } from '@ton/ton';
+
+interface WalletData {
+  address: string;
+  publicKey: string;
+  privateKey: string;
+}
+
+function Send() {
+  const [user, setUser] = useState<User | null>(null);
+  const [wallet, setWallet] = useState<WalletData | null>(null);
+  const [recipient, setRecipient] = useState('');
+  const [amount, setAmount] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        try {
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists() && userDoc.data()?.wallet) {
+            setWallet(userDoc.data().wallet as WalletData);
+          } else {
+            navigate('/home');
+          }
+        } catch (err) {
+          console.error('Error fetching wallet data:', err);
+          navigate('/home');
+        }
+        setLoading(false);
+      } else {
+        navigate('/auth');
+      }
+    });
+    return () => unsubscribe();
+  }, [navigate]);
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!wallet || !recipient || !amount) return;
+
+    setSending(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const client = new TonClient({
+        endpoint: import.meta.env.VITE_TON_TESTNET_ENDPOINT,
+        apiKey: import.meta.env.VITE_TON_TESTNET_API_KEY,
+      });
+
+      const keyPair = {
+        publicKey: Buffer.from(wallet.publicKey, 'hex'),
+        secretKey: Buffer.from(wallet.privateKey, 'hex'),
+      };
+      const walletContract = WalletContractV4.create({
+        workchain: 0,
+        publicKey: keyPair.publicKey,
+      });
+
+      const walletInstance = client.open(walletContract);
+      const seqno = await walletInstance.getSeqno();
+      console.log('Current seqno:', seqno);
+
+      const transferMessage = internal({
+        to: Address.parse(recipient),
+        value: toNano(amount),
+        bounce: false,
+      });
+
+      const transfer = walletContract.createTransfer({
+        seqno,
+        secretKey: keyPair.secretKey,
+        messages: [transferMessage],
+      });
+
+      console.log('Sending transfer:', transfer);
+      await walletInstance.send(transfer);
+      setSuccess('Transaction sent successfully!');
+      setRecipient('');
+      setAmount('');
+    } catch (err: any) {
+      console.error('Detailed error sending transaction:', err);
+      if (err.response?.status === 429) {
+        setError('Too many requests. Please wait a moment and try again.');
+      } else {
+        setError(err.message || 'Failed to send transaction.');
+      }
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (loading || !user || !wallet) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md space-y-6">
+        <h2 className="text-2xl font-bold text-center">Send TON</h2>
+
+        {error && <p className="text-red-500 text-center">{error}</p>}
+        {success && <p className="text-green-500 text-center">{success}</p>}
+
+        <form onSubmit={handleSend} className="space-y-4">
+          <div>
+            <label htmlFor="recipient" className="block text-sm font-medium text-gray-700">
+              Recipient Address
+            </label>
+            <input
+              type="text"
+              id="recipient"
+              value={recipient}
+              onChange={(e) => setRecipient(e.target.value)}
+              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="EQA..."
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="amount" className="block text-sm font-medium text-gray-700">
+              Amount (TON)
+            </label>
+            <input
+              type="number"
+              id="amount"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              step="0.01"
+              min="0"
+              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="0.20"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={sending}
+            className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:bg-indigo-400"
+          >
+            {sending ? 'Sending...' : 'Send'}
+          </button>
+        </form>
+        <button
+          onClick={() => navigate('/home')}
+          className="w-full py-2 px-4 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+        >
+          Back to Wallet
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default Send;
+
 ### src/TopBar.tsx ###
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { auth } from './firebase';
 import { signOut, User } from 'firebase/auth';
 
-// Base64-encoded default profile image (gray circle with user icon)
-const DEFAULT_PROFILE_IMAGE = 
-    'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNDQ0NDQ0MiLz4KPHBhdGggZD0iTTE5Ljk5OTkgMjQuNUMyMi43NjQyIDI0LjUgMjUuMDAwMSAyMi4yNjQyIDI1LjAwMDEgMTkuNUMyNS4wMDAxIDE2LjczNTggMjIuNzY0MiAxNC40OTk5IDE5Ljk5OTkgMTQuNDk5OUMxNy4yMzU3IDE0LjQ5OTkgMTUgMTYuNzM1OCAxNSAxOS41QzE1IDIyLjI2NDIgMTcuMjM1NyAyNC41IDE5Ljk5OTkgMjQuNVoiIGZpbGw9IiM2NjY2NjYiLz4KPHBhdGggZD0iTTEyLjUgMjkuNUMxMi41IDI3LjAxNDkgMTQuNTE0OSAyNSAyNy41IDI1QzI3LjUgMjcuMDE0OSAyNS40ODUxIDI5IDIyLjUgMjkuNUMxOS41MTQ5IDI5LjUgMTcuNSAyNy40ODUxIDE3LjUgMjUuNUMxNS41MTQ9IDI1LjUgMTIuNSAyNy4wMTQ5IDEyLjUgMjkuNVoiIGZpbGw9IiM6NjY2NjYiLz4KPC9zdmc+';
+const DEFAULT_PROFILE_IMAGE = '/default-profile.jpg';
 
 interface TopBarProps {
   user: User;
@@ -308,60 +818,83 @@ interface TopBarProps {
 
 function TopBar({ user }: TopBarProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const profileImgRef = useRef<HTMLImageElement>(null);
+  const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
       console.log('Logged out successfully');
       setIsMenuOpen(false);
+      navigate('/auth'); // Redirect to auth after logout
     } catch (err) {
       console.error('Logout error:', err);
     }
   };
 
   const toggleMenu = () => {
-    console.log('Toggling menu, current state:', isMenuOpen); // Debug log
     setIsMenuOpen((prev) => !prev);
   };
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        menuRef.current &&
+        profileImgRef.current &&
+        !menuRef.current.contains(event.target as Node) &&
+        !profileImgRef.current.contains(event.target as Node)
+      ) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    if (isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMenuOpen]);
+
   return (
     <div className="bg-white shadow-md p-4 flex items-center justify-between relative">
-      <div className="flex items-center space-x-4">
-        <div className="relative">
-          <img
-            src={user.photoURL || DEFAULT_PROFILE_IMAGE}
-            alt="Profile"
-            className="w-10 h-10 rounded-full cursor-pointer"
-            onClick={toggleMenu}
-          />
-          {/* Dropdown Menu */}
-          <div
-            className={`absolute top-full mt-2 right-0 bg-white shadow-lg rounded-md w-40 z-50 ${
-              isMenuOpen ? 'block' : 'hidden'
-            }`}
-          >
-            <ul className="py-2 text-sm">
-              <li
-                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                onClick={() => {
-                  console.log('Profile clicked');
-                  setIsMenuOpen(false);
-                }}
-              >
-                Profile
-              </li>
-              <li
-                className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-red-600"
-                onClick={handleLogout}
-              >
-                Logout
-              </li>
-            </ul>
-          </div>
-        </div>
-        <div>
-          <p className="text-lg font-semibold">{user.displayName || 'User'}</p>
-          <p className="text-sm text-gray-600">{user.email}</p>
+      <div>
+        <p className="text-lg font-semibold">{user.displayName || 'User'}</p>
+        <p className="text-sm text-gray-600">{user.email}</p>
+      </div>
+      <div className="relative">
+        <img
+          ref={profileImgRef}
+          src={user.photoURL || DEFAULT_PROFILE_IMAGE}
+          alt="Profile"
+          className="w-10 h-10 rounded-full cursor-pointer"
+          onClick={toggleMenu}
+        />
+        <div
+          ref={menuRef}
+          className={`absolute top-full mt-2 right-0 bg-white shadow-lg rounded-md w-40 z-50 ${
+            isMenuOpen ? 'block' : 'hidden'
+          }`}
+        >
+          <ul className="py-2 text-sm">
+            <li
+              className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+              onClick={() => {
+                navigate('/profile');
+                setIsMenuOpen(false);
+              }}
+            >
+              Profile
+            </li>
+            <li
+              className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-red-600"
+              onClick={handleLogout}
+            >
+              Logout
+            </li>
+          </ul>
         </div>
       </div>
     </div>
@@ -373,20 +906,21 @@ export default TopBar;
 ### src/firebase.ts ###
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
-// Replace with your Firebase config from the console
 const firebaseConfig = {
-    apiKey: "AIzaSyCZZq1UfrIIcjsbZe3JTyEMQ2xa0NkZoBo",
-    authDomain: "hogweed-map.firebaseapp.com",
-    projectId: "hogweed-map",
-    storageBucket: "hogweed-map.firebasestorage.app",
-    messagingSenderId: "790762617108",
-    appId: "1:790762617108:web:bdcabebbf639f66eaeaa01",
-    measurementId: "G-HG7MFQSGNM"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+export const db = getFirestore(app);
 
 ### src/index.css ###
 
@@ -399,13 +933,28 @@ export const auth = getAuth(app);
 ### src/main.tsx ###
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import './index.css';
 import App from './App.tsx';
+import AuthForm from './AuthForm.tsx';
+import Home from './Home.tsx';
+import Profile from './Profile.tsx';
+import Receive from './Receive.tsx';
+import Send from './Send.tsx';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
-  </StrictMode>,
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<App />} />
+        <Route path="/auth" element={<AuthForm />} />
+        <Route path="/home" element={<Home />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/receive" element={<Receive />} />
+        <Route path="/send" element={<Send />} /> {/* New route */}
+      </Routes>
+    </BrowserRouter>
+  </StrictMode>
 );
 
 ### src/vite-env.d.ts ###
@@ -475,10 +1024,17 @@ createRoot(document.getElementById('root')!).render(
 }
 
 ### vite.config.ts ###
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
-})
+  plugins: [
+    react(),
+    tailwindcss(),
+    nodePolyfills({
+      buffer: true, // Polyfill Buffer
+    }),
+  ],
+});
