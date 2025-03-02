@@ -7,6 +7,8 @@ import { mnemonicNew, mnemonicToPrivateKey } from '@ton/crypto';
 import { WalletContractV4, TonClient, Address } from '@ton/ton';
 import { Buffer } from 'buffer';
 import TopBar from './TopBar';
+import { useNetwork } from './NetworkContext';
+import { TON_CONFIG } from './ton-config';
 
 interface WalletData {
   address: string;
@@ -22,6 +24,7 @@ function Home() {
   const [balance, setBalance] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { network } = useNetwork();
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
@@ -49,7 +52,7 @@ function Home() {
       }
     });
     return () => unsubscribe();
-  }, [navigate]);
+  }, [navigate, network]); // Re-run if network changes
 
   const generateAndSaveWallet = async (userId: string) => {
     try {
@@ -65,7 +68,7 @@ function Home() {
       const walletData: WalletData = {
         publicKey: Buffer.from(keyPair.publicKey).toString('hex'),
         privateKey: Buffer.from(keyPair.secretKey).toString('hex'),
-        address: walletContract.address.toString(),
+        address: walletContract.address.toString({ bounceable: false, testOnly: network === 'testnet' }),
       };
 
       await setDoc(doc(db, 'users', userId), { wallet: walletData });
@@ -81,8 +84,8 @@ function Home() {
   const fetchBalance = async (address: string) => {
     try {
       const client = new TonClient({
-        endpoint: import.meta.env.VITE_TON_TESTNET_ENDPOINT,
-        apiKey: import.meta.env.VITE_TON_TESTNET_API_KEY,
+        endpoint: TON_CONFIG[network].endpoint,
+        apiKey: TON_CONFIG[network].apiKey,
       });
       const walletAddress = Address.parse(address);
       const balanceNano = await client.getBalance(walletAddress);
@@ -103,10 +106,11 @@ function Home() {
 
   const getAddressFormats = (address: string) => {
     const addr = Address.parse(address);
+    const isTestnet = network === 'testnet';
     return {
       raw: addr.toRawString(),
-      bounceable: addr.toString({ bounceable: true, testOnly: false }),
-      nonBounceable: addr.toString({ bounceable: false, testOnly: false }),
+      bounceable: addr.toString({ bounceable: true, testOnly: isTestnet }),
+      nonBounceable: addr.toString({ bounceable: false, testOnly: isTestnet }),
       testBounceable: addr.toString({ bounceable: true, testOnly: true }),
       testNonBounceable: addr.toString({ bounceable: false, testOnly: true }),
     };
@@ -120,7 +124,7 @@ function Home() {
     <div className="min-h-screen bg-gray-100">
       <TopBar user={user} />
       <div className="p-6">
-        <h1 className="text-2xl font-bold mb-4">Welcome to Your Wallet</h1>
+        <h1 className="text-2xl font-bold mb-4">Welcome to Your Wallet ({network.toUpperCase()})</h1>
         {hasWallet === true && mnemonic ? (
           <div className="space-y-4">
             <p className="text-gray-700">Your TON wallet has been created! Save this mnemonic phrase securely (it will only be shown once):</p>

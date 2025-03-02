@@ -5,6 +5,8 @@ import { User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { Buffer } from 'buffer';
 import { TonClient, WalletContractV4, Address, toNano, internal } from '@ton/ton';
+import { useNetwork } from './NetworkContext';
+import { TON_CONFIG } from './ton-config';
 
 interface WalletData {
   address: string;
@@ -22,6 +24,7 @@ function Send() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { network } = useNetwork();
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
@@ -57,8 +60,8 @@ function Send() {
 
     try {
       const client = new TonClient({
-        endpoint: import.meta.env.VITE_TON_TESTNET_ENDPOINT,
-        apiKey: import.meta.env.VITE_TON_TESTNET_API_KEY,
+        endpoint: TON_CONFIG[network].endpoint,
+        apiKey: TON_CONFIG[network].apiKey,
       });
 
       const keyPair = {
@@ -72,7 +75,6 @@ function Send() {
 
       const walletInstance = client.open(walletContract);
       const seqno = await walletInstance.getSeqno();
-      console.log('Current seqno:', seqno);
 
       const transferMessage = internal({
         to: Address.parse(recipient),
@@ -86,18 +88,13 @@ function Send() {
         messages: [transferMessage],
       });
 
-      console.log('Sending transfer:', transfer);
       await walletInstance.send(transfer);
       setSuccess('Transaction sent successfully!');
       setRecipient('');
       setAmount('');
     } catch (err: any) {
-      console.error('Detailed error sending transaction:', err);
-      if (err.response?.status === 429) {
-        setError('Too many requests. Please wait a moment and try again.');
-      } else {
-        setError(err.message || 'Failed to send transaction.');
-      }
+      console.error('Error sending transaction:', err);
+      setError(err.message || 'Failed to send transaction.');
     } finally {
       setSending(false);
     }
@@ -110,7 +107,7 @@ function Send() {
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center">
       <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md space-y-6">
-        <h2 className="text-2xl font-bold text-center">Send TON</h2>
+        <h2 className="text-2xl font-bold text-center">Send TON ({network.toUpperCase()})</h2>
 
         {error && <p className="text-red-500 text-center">{error}</p>}
         {success && <p className="text-green-500 text-center">{success}</p>}
@@ -126,7 +123,7 @@ function Send() {
               value={recipient}
               onChange={(e) => setRecipient(e.target.value)}
               className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="EQA..."
+              placeholder="UQ..."
               required
             />
           </div>
