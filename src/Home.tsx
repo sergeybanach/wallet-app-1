@@ -9,6 +9,7 @@ import { Buffer } from 'buffer';
 import TopBar from './TopBar';
 import { useNetwork } from './NetworkContext';
 import { TON_CONFIG } from './ton-config';
+import { FiRefreshCw } from 'react-icons/fi'; // Import refresh icon from react-icons
 
 interface WalletData {
   address: string;
@@ -23,6 +24,7 @@ function Home() {
   const [wallet, setWallet] = useState<WalletData | null>(null);
   const [balance, setBalance] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false); // Track refresh state
   const navigate = useNavigate();
   const { network } = useNetwork();
 
@@ -52,7 +54,7 @@ function Home() {
       }
     });
     return () => unsubscribe();
-  }, [navigate, network]); // Re-run if network changes
+  }, [navigate, network]);
 
   const generateAndSaveWallet = async (userId: string) => {
     try {
@@ -83,6 +85,7 @@ function Home() {
 
   const fetchBalance = async (address: string) => {
     try {
+      setIsRefreshing(true);
       const client = new TonClient({
         endpoint: TON_CONFIG[network].endpoint,
         apiKey: TON_CONFIG[network].apiKey,
@@ -94,6 +97,8 @@ function Home() {
     } catch (err) {
       console.error('Error fetching balance:', err);
       setBalance('Error');
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -141,11 +146,23 @@ function Home() {
         ) : hasWallet === true && wallet ? (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold">Your TON Wallet</h2>
-            <div className="bg-white p-4 rounded-md shadow-md space-y-2">
-              <p className="text-gray-700">
-                <span className="font-medium">Balance:</span>{' '}
-                {balance === null ? 'Fetching...' : balance === 'Error' ? 'Unable to fetch' : `${balance} TON`}
-              </p>
+            <div className="bg-white p-4 rounded-md shadow-md space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-gray-700">
+                  <span className="font-medium">Balance:</span>{' '}
+                  {balance === null ? 'Fetching...' : balance === 'Error' ? 'Unable to fetch' : `${balance} TON`}
+                </p>
+                <button
+                  onClick={handleRefreshBalance}
+                  disabled={isRefreshing}
+                  className={`p-2 rounded-full text-blue-600 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                    isRefreshing ? 'animate-spin' : ''
+                  }`}
+                  title="Refresh Balance"
+                >
+                  <FiRefreshCw size={20} />
+                </button>
+              </div>
               <div>
                 <span className="font-medium">Address Formats:</span>
                 {(() => {
