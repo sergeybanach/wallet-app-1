@@ -9,7 +9,7 @@ import { Buffer } from 'buffer';
 import TopBar from './TopBar';
 import { useNetwork } from './NetworkContext';
 import { TON_CONFIG } from './ton-config';
-import { FiRefreshCw } from 'react-icons/fi';
+import { FiRefreshCw, FiMoreHorizontal } from 'react-icons/fi'; // Added FiMoreHorizontal for the button
 
 interface WalletData {
   address: string;
@@ -25,6 +25,7 @@ function Home() {
   const [balance, setBalance] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showAddressPopup, setShowAddressPopup] = useState(false); // State for popup
   const navigate = useNavigate();
   const { network } = useNetwork();
 
@@ -160,20 +161,19 @@ function Home() {
                   <FiRefreshCw size={20} />
                 </button>
               </div>
-              <div>
-                <span className="font-medium">Address Formats:</span>
-                {(() => {
-                  const formats = getAddressFormats(wallet.address);
-                  return (
-                    <div className="text-sm font-mono break-all space-y-1 mt-1">
-                      <p><span className="font-semibold">Raw:</span> {formats.raw}</p>
-                      <p><span className="font-semibold">Bounceable:</span> {formats.bounceable}</p>
-                      <p><span className="font-semibold">Non-Bounceable:</span> {formats.nonBounceable}</p>
-                      <p><span className="font-semibold">Testnet Bounceable:</span> {formats.testBounceable}</p>
-                      <p><span className="font-semibold">Testnet Non-Bounceable:</span> {formats.testNonBounceable}</p>
-                    </div>
-                  );
-                })()}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-mono text-gray-700 break-all">
+                    {wallet.address} {/* Non-bounceable by default */}
+                  </p>
+                  <button
+                    onClick={() => setShowAddressPopup(true)}
+                    className="p-2 rounded-full text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                    title="Show All Address Formats"
+                  >
+                    <FiMoreHorizontal size={20} />
+                  </button>
+                </div>
               </div>
               <div className="flex space-x-4">
                 <button
@@ -195,6 +195,33 @@ function Home() {
           <p className="text-gray-700">Generating your TON wallet...</p>
         )}
       </div>
+
+      {/* Popup for additional address formats */}
+      {showAddressPopup && wallet && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900">All Address Formats</h3>
+            {(() => {
+              const formats = getAddressFormats(wallet.address);
+              return (
+                <div className="text-sm font-mono text-gray-700 space-y-2">
+                  <p><span className="font-semibold">Raw:</span> {formats.raw}</p>
+                  <p><span className="font-semibold">Bounceable:</span> {formats.bounceable}</p>
+                  <p><span className="font-semibold">Non-Bounceable:</span> {formats.nonBounceable}</p>
+                  <p><span className="font-semibold">Testnet Bounceable:</span> {formats.testBounceable}</p>
+                  <p><span className="font-semibold">Testnet Non-Bounceable:</span> {formats.testNonBounceable}</p>
+                </div>
+              );
+            })()}
+            <button
+              onClick={() => setShowAddressPopup(false)}
+              className="w-full py-2 px-4 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
