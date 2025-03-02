@@ -9,7 +9,7 @@ import { Buffer } from 'buffer';
 import TopBar from './TopBar';
 import { useNetwork } from './NetworkContext';
 import { TON_CONFIG } from './ton-config';
-import { FiRefreshCw } from 'react-icons/fi'; // Import refresh icon from react-icons
+import { FiRefreshCw } from 'react-icons/fi';
 
 interface WalletData {
   address: string;
@@ -24,7 +24,7 @@ function Home() {
   const [wallet, setWallet] = useState<WalletData | null>(null);
   const [balance, setBalance] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false); // Track refresh state
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const navigate = useNavigate();
   const { network } = useNetwork();
 
@@ -178,26 +178,20 @@ function Home() {
                   );
                 })()}
               </div>
-            </div>
-            <div className="space-y-2">
-              <button
-                onClick={() => navigate('/receive')}
-                className="w-full py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-              >
-                Receive
-              </button>
-              <button
-                onClick={() => navigate('/send')}
-                className="w-full py-2 px-4 bg-orange-600 text-white rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-              >
-                Send
-              </button>
-              <button
-                onClick={handleRefreshBalance}
-                className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              >
-                Refresh Balance
-              </button>
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => navigate('/receive')}
+                  className="flex-1 py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                >
+                  Receive
+                </button>
+                <button
+                  onClick={() => navigate('/send')}
+                  className="flex-1 py-2 px-4 bg-orange-600 text-white rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+                >
+                  Send
+                </button>
+              </div>
             </div>
           </div>
         ) : (
