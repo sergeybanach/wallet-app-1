@@ -9,7 +9,7 @@ import { Buffer } from 'buffer';
 import TopBar from './TopBar';
 import { useNetwork } from './NetworkContext';
 import { TON_CONFIG } from './ton-config';
-import { FiRefreshCw, FiMoreHorizontal } from 'react-icons/fi'; // Added FiMoreHorizontal for the button
+import { FiRefreshCw, FiMoreHorizontal } from 'react-icons/fi';
 
 interface WalletData {
   address: string;
@@ -25,7 +25,8 @@ function Home() {
   const [balance, setBalance] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showAddressPopup, setShowAddressPopup] = useState(false); // State for popup
+  const [showAddressPopup, setShowAddressPopup] = useState(false);
+  const [copied, setCopied] = useState(false); // State for copy feedback
   const navigate = useNavigate();
   const { network } = useNetwork();
 
@@ -122,6 +123,17 @@ function Home() {
     };
   };
 
+  const handleCopyAddress = () => {
+    if (wallet) {
+      navigator.clipboard.writeText(wallet.address).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000); // Show "Copied!" for 2 seconds
+      }).catch((err) => {
+        console.error('Failed to copy address:', err);
+      });
+    }
+  };
+
   if (!user || loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
@@ -162,9 +174,13 @@ function Home() {
                 </button>
               </div>
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-mono text-gray-700 break-all">
-                    {wallet.address} {/* Non-bounceable by default */}
+                <div className="flex items-center justify-center space-x-4">
+                  <p
+                    className="text-lg font-bold text-gray-700 text-center font-mono break-all cursor-pointer hover:text-gray-900"
+                    onClick={handleCopyAddress}
+                    title="Click to copy"
+                  >
+                    {copied ? 'Copied!' : wallet.address}
                   </p>
                   <button
                     onClick={() => setShowAddressPopup(true)}
