@@ -80,16 +80,13 @@ function Home() {
 
   const fetchBalance = async (address: string) => {
     try {
-      console.log('Fetching balance for address:', address);
       const client = new TonClient({
         endpoint: import.meta.env.VITE_TON_TESTNET_ENDPOINT,
         apiKey: import.meta.env.VITE_TON_TESTNET_API_KEY,
       });
       const walletAddress = Address.parse(address);
       const balanceNano = await client.getBalance(walletAddress);
-      console.log('Balance (nanoTON):', balanceNano.toString());
       const balanceTon = Number(balanceNano) / 1e9;
-      console.log('Balance (TON):', balanceTon);
       setBalance(balanceTon.toFixed(2));
     } catch (err) {
       console.error('Error fetching balance:', err);
@@ -102,6 +99,17 @@ function Home() {
       setBalance(null);
       fetchBalance(wallet.address);
     }
+  };
+
+  const getAddressFormats = (address: string) => {
+    const addr = Address.parse(address);
+    return {
+      raw: addr.toRawString(),
+      bounceable: addr.toString({ bounceable: true, testOnly: false }),
+      nonBounceable: addr.toString({ bounceable: false, testOnly: false }),
+      testBounceable: addr.toString({ bounceable: true, testOnly: true }),
+      testNonBounceable: addr.toString({ bounceable: false, testOnly: true }),
+    };
   };
 
   if (!user || loading) {
@@ -131,13 +139,24 @@ function Home() {
             <h2 className="text-xl font-semibold">Your TON Wallet</h2>
             <div className="bg-white p-4 rounded-md shadow-md space-y-2">
               <p className="text-gray-700">
-                <span className="font-medium">Address:</span>{' '}
-                <span className="text-sm font-mono break-all">{wallet.address}</span>
-              </p>
-              <p className="text-gray-700">
                 <span className="font-medium">Balance:</span>{' '}
                 {balance === null ? 'Fetching...' : balance === 'Error' ? 'Unable to fetch' : `${balance} TON`}
               </p>
+              <div>
+                <span className="font-medium">Address Formats:</span>
+                {(() => {
+                  const formats = getAddressFormats(wallet.address);
+                  return (
+                    <div className="text-sm font-mono break-all space-y-1 mt-1">
+                      <p><span className="font-semibold">Raw:</span> {formats.raw}</p>
+                      <p><span className="font-semibold">Bounceable:</span> {formats.bounceable}</p>
+                      <p><span className="font-semibold">Non-Bounceable:</span> {formats.nonBounceable}</p>
+                      <p><span className="font-semibold">Testnet Bounceable:</span> {formats.testBounceable}</p>
+                      <p><span className="font-semibold">Testnet Non-Bounceable:</span> {formats.testNonBounceable}</p>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
             <div className="space-y-2">
               <button
