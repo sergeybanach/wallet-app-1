@@ -1,5 +1,3 @@
-Debian 12, NodeJS 22.13.1, pnpm
-
 ### eslint.config.js ###
 import js from '@eslint/js'
 import globals from 'globals'
