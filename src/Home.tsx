@@ -129,7 +129,6 @@ function Home() {
     <div className="min-h-screen bg-gray-100">
       <TopBar user={user} />
       <div className="p-6">
-        <h1 className="text-2xl font-bold mb-4">Welcome to Your Wallet ({network.toUpperCase()})</h1>
         {hasWallet === true && mnemonic ? (
           <div className="space-y-4">
             <p className="text-gray-700">Your TON wallet has been created! Save this mnemonic phrase securely (it will only be shown once):</p>
@@ -145,12 +144,10 @@ function Home() {
           </div>
         ) : hasWallet === true && wallet ? (
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Your TON Wallet</h2>
-            <div className="bg-white p-4 rounded-md shadow-md space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-gray-700">
-                  <span className="font-medium">Balance:</span>{' '}
-                  {balance === null ? 'Fetching...' : balance === 'Error' ? 'Unable to fetch' : `${balance} TON`}
+            <div className="bg-white p-4 rounded-md shadow-md space-y-6">
+              <div className="flex items-center justify-center space-x-4">
+                <p className="text-4xl font-bold text-gray-900">
+                  {balance === null ? 'Fetching...' : balance === 'Error' ? 'N/A' : `${balance} TON`}
                 </p>
                 <button
                   onClick={handleRefreshBalance}
