@@ -21,7 +21,7 @@ function App() {
 
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <p>Loading...</p> {/* Shown briefly while auth state is checked */}
+      <p>{user ? 'Redirecting to home...' : 'Redirecting to login...'}</p>
     </div>
   );
 }

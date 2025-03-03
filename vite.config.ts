@@ -8,7 +8,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
     nodePolyfills({
-      buffer: true, // Polyfill Buffer
+      globals: {
+        Buffer: true
+      }
     }),
   ],
 });
