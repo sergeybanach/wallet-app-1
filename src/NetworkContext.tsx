@@ -1,5 +1,5 @@
 // src/NetworkContext.tsx
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Network } from './ton-config';
 
 interface NetworkContextType {
@@ -10,12 +10,16 @@ interface NetworkContextType {
 const NetworkContext = createContext<NetworkContextType | undefined>(undefined);
 
 export function NetworkProvider({ children }: { children: ReactNode }) {
-//   const [network, setNetwork] = useState<Network>('testnet'); // Default to testnet
-
+  // Initialize network from localStorage, defaulting to 'testnet' if not set
   const [network, setNetwork] = useState<Network>(() => {
     return (localStorage.getItem('network') as Network) || 'testnet';
   });
-  
+
+  // Update localStorage whenever the network changes
+  useEffect(() => {
+    localStorage.setItem('network', network);
+  }, [network]);
+
   return (
     <NetworkContext.Provider value={{ network, setNetwork }}>
       {children}
