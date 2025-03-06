@@ -157,26 +157,26 @@ function TransactionHistory() {
   }
 
   return (
-    <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md w-full max-w-md sm:max-w-2xl">
+    <div className="w-full max-w-md bg-white p-4 rounded-lg shadow-md">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-base sm:text-lg font-semibold truncate">Transaction History</h3>
+        <h3 className="text-lg font-semibold">Transaction History</h3>
         <button
           onClick={handleRefresh}
           className="p-2 rounded-full text-blue-600 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           title="Refresh Transactions"
         >
-          <FiRefreshCw size={18} sm={20} className={loading ? 'animate-spin' : ''} />
+          <FiRefreshCw size={20} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
 
       {error && (
-        <p className="text-red-500 text-center mb-4 text-sm sm:text-base">{error}</p>
+        <p className="text-red-500 text-center mb-4">{error}</p>
       )}
 
       {transactions.length === 0 ? (
-        <p className="text-gray-600 text-center text-sm sm:text-base">No transactions yet.</p>
+        <p className="text-gray-600 text-center">No transactions yet.</p>
       ) : (
-        <ul className="space-y-3 sm:space-y-4">
+        <ul className="space-y-4">
           {transactions.map((tx) => (
             <li key={tx.hash} className="border-b pb-2">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">

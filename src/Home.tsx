@@ -116,36 +116,38 @@ function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
       <TopBar user={user} />
-      <div className="p-6 space-y-6">
-        {hasWallet === true && mnemonic ? (
-          <div className="space-y-4">
-            <p className="text-gray-700">Your TON wallet has been created! Save this mnemonic phrase securely (it will only be shown once):</p>
-            <div className="bg-gray-200 p-4 rounded-md">
-              <p className="text-sm font-mono break-words">{mnemonic.join(' ')}</p>
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="space-y-6">
+          {hasWallet === true && mnemonic ? (
+            <div className="w-full max-w-md space-y-4">
+              <p className="text-gray-700">Your TON wallet has been created! Save this mnemonic phrase securely (it will only be shown once):</p>
+              <div className="bg-gray-200 p-4 rounded-md">
+                <p className="text-sm font-mono break-words">{mnemonic.join(' ')}</p>
+              </div>
+              <button
+                onClick={() => setMnemonic(null)}
+                className="py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              >
+                I’ve Saved It
+              </button>
             </div>
-            <button
-              onClick={() => setMnemonic(null)}
-              className="py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-            >
-              I’ve Saved It
-            </button>
-          </div>
-        ) : hasWallet === true && wallet ? (
-          <div className="space-y-6">
-            <BalanceCard
-              wallet={wallet}
-              balance={balance}
-              isRefreshing={isRefreshing}
-              onRefresh={handleRefreshBalance}
-              network={network}
-            />
-            <TransactionHistory />
-          </div>
-        ) : (
-          <p className="text-gray-700">Generating your TON wallet...</p>
-        )}
+          ) : hasWallet === true && wallet ? (
+            <div className="space-y-6">
+              <BalanceCard
+                wallet={wallet}
+                balance={balance}
+                isRefreshing={isRefreshing}
+                onRefresh={handleRefreshBalance}
+                network={network}
+              />
+              <TransactionHistory />
+            </div>
+          ) : (
+            <p className="text-gray-700">Generating your TON wallet...</p>
+          )}
+        </div>
       </div>
     </div>
   );

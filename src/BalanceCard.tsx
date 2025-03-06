@@ -45,7 +45,7 @@ function BalanceCard({ wallet, balance, isRefreshing, onRefresh, network }: Bala
   };
 
   return (
-    <div className="bg-white p-4 rounded-md shadow-md space-y-6">
+    <div className="w-full max-w-md bg-white p-4 rounded-md shadow-md space-y-6">
       <div className="flex items-center justify-center space-x-4">
         <p className="text-4xl font-bold text-gray-900">
           {balance === null ? 'Fetching...' : balance === 'Error' ? 'N/A' : `${balance} TON`}
