@@ -11,7 +11,7 @@ import TopBar from './TopBar';
 import { useNetwork } from './NetworkContext';
 import { TON_CONFIG } from './ton-config';
 import TransactionHistory from './TransactionHistory';
-import BalanceCard from './BalanceCard'; // Import the new component
+import BalanceCard from './BalanceCard';
 
 interface WalletData {
   address: string;
@@ -133,18 +133,16 @@ function Home() {
             </button>
           </div>
         ) : hasWallet === true && wallet ? (
-          <>
-            <div className="space-y-4">
-              <BalanceCard
-                wallet={wallet}
-                balance={balance}
-                isRefreshing={isRefreshing}
-                onRefresh={handleRefreshBalance}
-                network={network}
-              />
-            </div>
+          <div className="space-y-6">
+            <BalanceCard
+              wallet={wallet}
+              balance={balance}
+              isRefreshing={isRefreshing}
+              onRefresh={handleRefreshBalance}
+              network={network}
+            />
             <TransactionHistory />
-          </>
+          </div>
         ) : (
           <p className="text-gray-700">Generating your TON wallet...</p>
         )}

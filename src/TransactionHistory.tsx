@@ -150,61 +150,59 @@ function TransactionHistory() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
+      <div className="flex items-center justify-center p-4">
         <p className="text-gray-600">Loading transactions...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4 py-6 sm:py-8">
-      <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md w-full max-w-md sm:max-w-2xl">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-base sm:text-lg font-semibold truncate">Transaction History</h3>
-          <button
-            onClick={handleRefresh}
-            className="p-2 rounded-full text-blue-600 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            title="Refresh Transactions"
-          >
-            <FiRefreshCw size={18} sm={20} className={loading ? 'animate-spin' : ''} />
-          </button>
-        </div>
+    <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md w-full max-w-md sm:max-w-2xl">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-base sm:text-lg font-semibold truncate">Transaction History</h3>
+        <button
+          onClick={handleRefresh}
+          className="p-2 rounded-full text-blue-600 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          title="Refresh Transactions"
+        >
+          <FiRefreshCw size={18} sm={20} className={loading ? 'animate-spin' : ''} />
+        </button>
+      </div>
 
-        {error && (
-          <p className="text-red-500 text-center mb-4 text-sm sm:text-base">{error}</p>
-        )}
+      {error && (
+        <p className="text-red-500 text-center mb-4 text-sm sm:text-base">{error}</p>
+      )}
 
-        {transactions.length === 0 ? (
-          <p className="text-gray-600 text-center text-sm sm:text-base">No transactions yet.</p>
-        ) : (
-          <ul className="space-y-3 sm:space-y-4">
-            {transactions.map((tx) => (
-              <li key={tx.hash} className="border-b pb-2">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                  <div className="w-full sm:w-auto">
-                    <p className="text-sm font-medium">
-                      {tx.type === 'sent' ? 'Sent' : 'Received'}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {new Date(tx.time).toLocaleString()}
-                    </p>
-                    <p className="text-xs font-mono truncate">
-                      {tx.type === 'sent' ? tx.to : tx.from}
-                    </p>
-                  </div>
-                  <p
-                    className={`text-sm font-semibold whitespace-nowrap ${
-                      tx.type === 'sent' ? 'text-red-600' : 'text-green-600'
-                    }`}
-                  >
-                    {tx.type === 'sent' ? '-' : '+'}{tx.amount} TON
+      {transactions.length === 0 ? (
+        <p className="text-gray-600 text-center text-sm sm:text-base">No transactions yet.</p>
+      ) : (
+        <ul className="space-y-3 sm:space-y-4">
+          {transactions.map((tx) => (
+            <li key={tx.hash} className="border-b pb-2">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <div className="w-full sm:w-auto">
+                  <p className="text-sm font-medium">
+                    {tx.type === 'sent' ? 'Sent' : 'Received'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {new Date(tx.time).toLocaleString()}
+                  </p>
+                  <p className="text-xs font-mono truncate">
+                    {tx.type === 'sent' ? tx.to : tx.from}
                   </p>
                 </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+                <p
+                  className={`text-sm font-semibold whitespace-nowrap ${
+                    tx.type === 'sent' ? 'text-red-600' : 'text-green-600'
+                  }`}
+                >
+                  {tx.type === 'sent' ? '-' : '+'}{tx.amount} TON
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
