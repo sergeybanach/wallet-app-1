@@ -179,7 +179,7 @@ function TransactionHistory() {
         <ul className="space-y-4">
           {transactions.map((tx) => (
             <li key={tx.hash} className="border-b pb-2">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+              <div className="flex flex-col  justify-between items-start  gap-2">
                 <div className="w-full sm:w-auto">
                   <p className="text-sm font-medium">
                     {tx.type === 'sent' ? 'Sent' : 'Received'}
