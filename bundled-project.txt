@@ -76,6 +76,7 @@ import '@testing-library/jest-dom';
     "@ton/crypto": "^3.3.0",
     "@ton/ton": "^15.2.1",
     "@tonconnect/ui-react": "^2.0.11",
+    "axios": "^1.8.1",
     "buffer": "^6.0.3",
     "firebase": "^11.3.1",
     "qrcode.react": "^4.2.0",
@@ -271,6 +272,7 @@ function AuthForm() {
 export default AuthForm;
 
 ### src/Home.tsx ###
+// src/Home.tsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from './firebase';
@@ -283,6 +285,7 @@ import TopBar from './TopBar';
 import { useNetwork } from './NetworkContext';
 import { TON_CONFIG } from './ton-config';
 import { FiRefreshCw, FiMoreHorizontal } from 'react-icons/fi';
+import TransactionHistory from './TransactionHistory'; // Import the new component
 
 interface WalletData {
   address: string;
@@ -299,7 +302,7 @@ function Home() {
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showAddressPopup, setShowAddressPopup] = useState(false);
-  const [copied, setCopied] = useState(false); // State for copy feedback
+  const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
   const { network } = useNetwork();
 
@@ -400,7 +403,7 @@ function Home() {
     if (wallet) {
       navigator.clipboard.writeText(wallet.address).then(() => {
         setCopied(true);
-        setTimeout(() => setCopied(false), 2000); // Show "Copied!" for 2 seconds
+        setTimeout(() => setCopied(false), 2000);
       }).catch((err) => {
         console.error('Failed to copy address:', err);
       });
@@ -414,7 +417,7 @@ function Home() {
   return (
     <div className="min-h-screen bg-gray-100">
       <TopBar user={user} />
-      <div className="p-6">
+      <div className="p-6 space-y-6">
         {hasWallet === true && mnemonic ? (
           <div className="space-y-4">
             <p className="text-gray-700">Your TON wallet has been created! Save this mnemonic phrase securely (it will only be shown once):</p>
@@ -429,63 +432,65 @@ function Home() {
             </button>
           </div>
         ) : hasWallet === true && wallet ? (
-          <div className="space-y-4">
-            <div className="bg-white p-4 rounded-md shadow-md space-y-6">
-              <div className="flex items-center justify-center space-x-4">
-                <p className="text-4xl font-bold text-gray-900">
-                  {balance === null ? 'Fetching...' : balance === 'Error' ? 'N/A' : `${balance} TON`}
-                </p>
-                <button
-                  onClick={handleRefreshBalance}
-                  disabled={isRefreshing}
-                  className={`p-2 rounded-full text-blue-600 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                    isRefreshing ? 'animate-spin' : ''
-                  }`}
-                  title="Refresh Balance"
-                >
-                  <FiRefreshCw size={20} />
-                </button>
-              </div>
-              <div className="space-y-2">
+          <>
+            <div className="space-y-4">
+              <div className="bg-white p-4 rounded-md shadow-md space-y-6">
                 <div className="flex items-center justify-center space-x-4">
-                  <p
-                    className="text-lg font-bold text-gray-700 text-center font-mono break-all cursor-pointer hover:text-gray-900"
-                    onClick={handleCopyAddress}
-                    title="Click to copy"
-                  >
-                    {copied ? 'Copied!' : wallet.address}
+                  <p className="text-4xl font-bold text-gray-900">
+                    {balance === null ? 'Fetching...' : balance === 'Error' ? 'N/A' : `${balance} TON`}
                   </p>
                   <button
-                    onClick={() => setShowAddressPopup(true)}
-                    className="p-2 rounded-full text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-                    title="Show All Address Formats"
+                    onClick={handleRefreshBalance}
+                    disabled={isRefreshing}
+                    className={`p-2 rounded-full text-blue-600 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                      isRefreshing ? 'animate-spin' : ''
+                    }`}
+                    title="Refresh Balance"
                   >
-                    <FiMoreHorizontal size={20} />
+                    <FiRefreshCw size={20} />
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-center space-x-4">
+                    <p
+                      className="text-lg font-bold text-gray-700 text-center font-mono break-all cursor-pointer hover:text-gray-900"
+                      onClick={handleCopyAddress}
+                      title="Click to copy"
+                    >
+                      {copied ? 'Copied!' : wallet.address}
+                    </p>
+                    <button
+                      onClick={() => setShowAddressPopup(true)}
+                      className="p-2 rounded-full text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                      title="Show All Address Formats"
+                    >
+                      <FiMoreHorizontal size={20} />
+                    </button>
+                  </div>
+                </div>
+                <div className="flex space-x-4">
+                  <button
+                    onClick={() => navigate('/receive')}
+                    className="flex-1 py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                  >
+                    Receive
+                  </button>
+                  <button
+                    onClick={() => navigate('/send')}
+                    className="flex-1 py-2 px-4 bg-orange-600 text-white rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+                  >
+                    Send
                   </button>
                 </div>
               </div>
-              <div className="flex space-x-4">
-                <button
-                  onClick={() => navigate('/receive')}
-                  className="flex-1 py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                >
-                  Receive
-                </button>
-                <button
-                  onClick={() => navigate('/send')}
-                  className="flex-1 py-2 px-4 bg-orange-600 text-white rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-                >
-                  Send
-                </button>
-              </div>
             </div>
-          </div>
+            <TransactionHistory /> {/* Add TransactionHistory component here */}
+          </>
         ) : (
           <p className="text-gray-700">Generating your TON wallet...</p>
         )}
       </div>
 
-      {/* Popup for additional address formats */}
       {showAddressPopup && wallet && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full space-y-4">
@@ -1050,6 +1055,220 @@ function TopBar({ user }: TopBarProps) {
 
 export default TopBar;
 
+### src/TransactionHistory.tsx ###
+// src/TransactionHistory.tsx
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { auth, db } from './firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import axios from 'axios';
+import { useNetwork } from './NetworkContext';
+import { TON_CONFIG } from './ton-config';
+import { FiRefreshCw } from 'react-icons/fi';
+
+interface Transaction {
+  hash: string;
+  time: number;
+  amount: string;
+  from: string;
+  to: string;
+  type: 'sent' | 'received';
+}
+
+interface WalletData {
+  address: string;
+  publicKey: string;
+  privateKey: string;
+}
+
+function TransactionHistory() {
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const { network } = useNetwork();
+
+  useEffect(() => {
+    const fetchWalletAndTransactions = async () => {
+      const user = auth.currentUser;
+      if (!user) {
+        navigate('/auth');
+        return;
+      }
+
+      const userDocRef = doc(db, 'users', user.uid);
+      try {
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists() && userDoc.data()?.wallet) {
+          const walletData = userDoc.data().wallet as WalletData;
+          setWalletAddress(walletData.address);
+          await fetchTransactions(walletData.address);
+        } else {
+          navigate('/home');
+        }
+      } catch (err) {
+        console.error('Error fetching wallet data:', err);
+        setError('Failed to load wallet data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchWalletAndTransactions();
+  }, [navigate, network]);
+
+  const fetchTransactions = async (address: string) => {
+    try {
+      const config = TON_CONFIG[network];
+      const baseUrl = config.endpoint.replace('/jsonRPC', '');
+      const url = `${baseUrl}/getTransactions`;
+      console.log('Fetching transactions from:', { url, apiKey: config.apiKey, address });
+
+      if (!config.apiKey) {
+        throw new Error('API key is missing for the selected network');
+      }
+
+      const response = await axios.get(url, {
+        params: {
+          address,
+          limit: 10,
+        },
+        headers: {
+          'X-API-Key': config.apiKey,
+        },
+      });
+
+      console.log('Raw transactions:', response.data);
+
+      if (!response.data.ok) {
+        throw new Error(response.data.error || 'Failed to fetch transactions');
+      }
+
+      const txs = response.data.result;
+      const formattedTxs: Transaction[] = txs.map((tx: any) => {
+        console.log('Parsing transaction:', tx);
+
+        const inValue = Number(tx.in_msg?.value || '0');
+        const outValue = tx.out_msgs && tx.out_msgs.length > 0 ? Number(tx.out_msgs[0].value || '0') : 0;
+        let amountNano = 0;
+        let type: 'sent' | 'received' = 'received';
+        let from = tx.in_msg?.source || 'Unknown';
+        let to = address;
+
+        if (inValue > 0 && outValue === 0) {
+          amountNano = inValue;
+          type = 'received';
+          from = tx.in_msg.source || 'Unknown';
+          to = address;
+        } else if (outValue > 0 && inValue === 0) {
+          amountNano = outValue;
+          type = 'sent';
+          from = address;
+          to = tx.out_msgs[0]?.destination || 'Unknown';
+        } else if (inValue > 0 && outValue > 0) {
+          amountNano = inValue > outValue ? inValue : outValue;
+          type = inValue > outValue ? 'received' : 'sent';
+          from = type === 'received' ? tx.in_msg.source || 'Unknown' : address;
+          to = type === 'sent' ? tx.out_msgs[0]?.destination || 'Unknown' : address;
+        } else {
+          amountNano = Number(tx.fee || '0');
+          type = 'sent';
+          from = address;
+          to = 'Network Fees';
+        }
+
+        const amountTon = (amountNano / 1e9).toFixed(4);
+        const utime = tx.utime ? tx.utime * 1000 : Date.now();
+
+        return {
+          hash: tx.transaction_id?.hash || 'Unknown',
+          time: utime,
+          amount: amountTon,
+          from,
+          to,
+          type,
+        };
+      });
+
+      setTransactions(formattedTxs);
+    } catch (err: any) {
+      console.error('Error fetching transactions:', err);
+      setError(err.message || 'Failed to load transaction history');
+    }
+  };
+
+  const handleRefresh = () => {
+    if (walletAddress) {
+      setLoading(true);
+      setError(null);
+      fetchTransactions(walletAddress).finally(() => setLoading(false));
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <p className="text-gray-600">Loading transactions...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4 py-6 sm:py-8">
+      <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md w-full max-w-md sm:max-w-2xl">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-base sm:text-lg font-semibold truncate">Transaction History</h3>
+          <button
+            onClick={handleRefresh}
+            className="p-2 rounded-full text-blue-600 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            title="Refresh Transactions"
+          >
+            <FiRefreshCw size={18} sm={20} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+
+        {error && (
+          <p className="text-red-500 text-center mb-4 text-sm sm:text-base">{error}</p>
+        )}
+
+        {transactions.length === 0 ? (
+          <p className="text-gray-600 text-center text-sm sm:text-base">No transactions yet.</p>
+        ) : (
+          <ul className="space-y-3 sm:space-y-4">
+            {transactions.map((tx) => (
+              <li key={tx.hash} className="border-b pb-2">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <div className="w-full sm:w-auto">
+                    <p className="text-sm font-medium">
+                      {tx.type === 'sent' ? 'Sent' : 'Received'}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(tx.time).toLocaleString()}
+                    </p>
+                    <p className="text-xs font-mono truncate">
+                      {tx.type === 'sent' ? tx.to : tx.from}
+                    </p>
+                  </div>
+                  <p
+                    className={`text-sm font-semibold whitespace-nowrap ${
+                      tx.type === 'sent' ? 'text-red-600' : 'text-green-600'
+                    }`}
+                  >
+                    {tx.type === 'sent' ? '-' : '+'}{tx.amount} TON
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default TransactionHistory;
+
 ### src/firebase.ts ###
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
@@ -1089,6 +1308,7 @@ import Home from './Home.tsx';
 import Profile from './Profile.tsx';
 import Receive from './Receive.tsx';
 import Send from './Send.tsx';
+import TransactionHistory from './TransactionHistory.tsx'; // Import TransactionHistory
 import { NetworkProvider } from './NetworkContext.tsx';
 
 createRoot(document.getElementById('root')!).render(
@@ -1102,6 +1322,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/profile" element={<Profile />} />
           <Route path="/receive" element={<Receive />} />
           <Route path="/send" element={<Send />} />
+          <Route path="/transactions" element={<TransactionHistory />} /> {/* Optional route */}
         </Routes>
       </BrowserRouter>
     </NetworkProvider>
