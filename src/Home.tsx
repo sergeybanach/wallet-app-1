@@ -1,3 +1,4 @@
+// src/Home.tsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from './firebase';
@@ -10,6 +11,7 @@ import TopBar from './TopBar';
 import { useNetwork } from './NetworkContext';
 import { TON_CONFIG } from './ton-config';
 import { FiRefreshCw, FiMoreHorizontal } from 'react-icons/fi';
+import TransactionHistory from './TransactionHistory'; // Import the new component
 
 interface WalletData {
   address: string;
@@ -26,7 +28,7 @@ function Home() {
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showAddressPopup, setShowAddressPopup] = useState(false);
-  const [copied, setCopied] = useState(false); // State for copy feedback
+  const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
   const { network } = useNetwork();
 
@@ -127,7 +129,7 @@ function Home() {
     if (wallet) {
       navigator.clipboard.writeText(wallet.address).then(() => {
         setCopied(true);
-        setTimeout(() => setCopied(false), 2000); // Show "Copied!" for 2 seconds
+        setTimeout(() => setCopied(false), 2000);
       }).catch((err) => {
         console.error('Failed to copy address:', err);
       });
@@ -141,7 +143,7 @@ function Home() {
   return (
     <div className="min-h-screen bg-gray-100">
       <TopBar user={user} />
-      <div className="p-6">
+      <div className="p-6 space-y-6">
         {hasWallet === true && mnemonic ? (
           <div className="space-y-4">
             <p className="text-gray-700">Your TON wallet has been created! Save this mnemonic phrase securely (it will only be shown once):</p>
@@ -156,63 +158,65 @@ function Home() {
             </button>
           </div>
         ) : hasWallet === true && wallet ? (
-          <div className="space-y-4">
-            <div className="bg-white p-4 rounded-md shadow-md space-y-6">
-              <div className="flex items-center justify-center space-x-4">
-                <p className="text-4xl font-bold text-gray-900">
-                  {balance === null ? 'Fetching...' : balance === 'Error' ? 'N/A' : `${balance} TON`}
-                </p>
-                <button
-                  onClick={handleRefreshBalance}
-                  disabled={isRefreshing}
-                  className={`p-2 rounded-full text-blue-600 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                    isRefreshing ? 'animate-spin' : ''
-                  }`}
-                  title="Refresh Balance"
-                >
-                  <FiRefreshCw size={20} />
-                </button>
-              </div>
-              <div className="space-y-2">
+          <>
+            <div className="space-y-4">
+              <div className="bg-white p-4 rounded-md shadow-md space-y-6">
                 <div className="flex items-center justify-center space-x-4">
-                  <p
-                    className="text-lg font-bold text-gray-700 text-center font-mono break-all cursor-pointer hover:text-gray-900"
-                    onClick={handleCopyAddress}
-                    title="Click to copy"
-                  >
-                    {copied ? 'Copied!' : wallet.address}
+                  <p className="text-4xl font-bold text-gray-900">
+                    {balance === null ? 'Fetching...' : balance === 'Error' ? 'N/A' : `${balance} TON`}
                   </p>
                   <button
-                    onClick={() => setShowAddressPopup(true)}
-                    className="p-2 rounded-full text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-                    title="Show All Address Formats"
+                    onClick={handleRefreshBalance}
+                    disabled={isRefreshing}
+                    className={`p-2 rounded-full text-blue-600 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                      isRefreshing ? 'animate-spin' : ''
+                    }`}
+                    title="Refresh Balance"
                   >
-                    <FiMoreHorizontal size={20} />
+                    <FiRefreshCw size={20} />
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-center space-x-4">
+                    <p
+                      className="text-lg font-bold text-gray-700 text-center font-mono break-all cursor-pointer hover:text-gray-900"
+                      onClick={handleCopyAddress}
+                      title="Click to copy"
+                    >
+                      {copied ? 'Copied!' : wallet.address}
+                    </p>
+                    <button
+                      onClick={() => setShowAddressPopup(true)}
+                      className="p-2 rounded-full text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                      title="Show All Address Formats"
+                    >
+                      <FiMoreHorizontal size={20} />
+                    </button>
+                  </div>
+                </div>
+                <div className="flex space-x-4">
+                  <button
+                    onClick={() => navigate('/receive')}
+                    className="flex-1 py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                  >
+                    Receive
+                  </button>
+                  <button
+                    onClick={() => navigate('/send')}
+                    className="flex-1 py-2 px-4 bg-orange-600 text-white rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+                  >
+                    Send
                   </button>
                 </div>
               </div>
-              <div className="flex space-x-4">
-                <button
-                  onClick={() => navigate('/receive')}
-                  className="flex-1 py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                >
-                  Receive
-                </button>
-                <button
-                  onClick={() => navigate('/send')}
-                  className="flex-1 py-2 px-4 bg-orange-600 text-white rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-                >
-                  Send
-                </button>
-              </div>
             </div>
-          </div>
+            <TransactionHistory /> {/* Add TransactionHistory component here */}
+          </>
         ) : (
           <p className="text-gray-700">Generating your TON wallet...</p>
         )}
       </div>
 
-      {/* Popup for additional address formats */}
       {showAddressPopup && wallet && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full space-y-4">

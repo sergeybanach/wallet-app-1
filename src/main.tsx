@@ -9,6 +9,7 @@ import Home from './Home.tsx';
 import Profile from './Profile.tsx';
 import Receive from './Receive.tsx';
 import Send from './Send.tsx';
+import TransactionHistory from './TransactionHistory.tsx'; // Import TransactionHistory
 import { NetworkProvider } from './NetworkContext.tsx';
 
 createRoot(document.getElementById('root')!).render(
@@ -22,6 +23,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/profile" element={<Profile />} />
           <Route path="/receive" element={<Receive />} />
           <Route path="/send" element={<Send />} />
+          <Route path="/transactions" element={<TransactionHistory />} /> {/* Optional route */}
         </Routes>
       </BrowserRouter>
     </NetworkProvider>
